@@ -10,7 +10,7 @@ var usb = require("gea-adapter-usb");
 var udp = require("gea-adapter-udp");
 
 var app = gea.configure({
-    address: 0xbb,
+    address: 0xdd,
     version: [ 0, 0, 0, 1 ]
 });
 
@@ -33,8 +33,6 @@ app.bind(usb, function (usb_bus) {
             console.log("udp:", message);
             usb_bus.send(message);
         });
-        
-        usb_bus.send({ command: 1 });
     });
 });
 
