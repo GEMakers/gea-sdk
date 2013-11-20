@@ -5,12 +5,9 @@
  *  
  */
 
-var util = require("util");
-var events = require("events");
 var stream = require("binary-stream");
 
 const BROADCAST_ADDRESS = 0xff;
-const COMMAND_VERSION = 0x01;
                 
 function extend(destination, source) {
     var result = { };
@@ -36,25 +33,11 @@ function matches(expected, message) {
     return true;
 }
 
-function Bus(configuration, bus) {
-    var self = this;
-    
-    bus.on("error", function (error) {
-        self.emit("error", error);
-    });
-    
-    bus.on("message", function (message) {
-        if (message.command == COMMAND_VERSION) {
-            self.emit("version", message);
-        }
-    
-        self.emit("message", message);
-    });
-    
-    this.wait = function(message, timeout, callback) {
+function create(bus, configuration, callback) {
+    bus.wait = function(message, timeout, callback) {
         var timer = setTimeout(function() {
             timer = null;
-            callback(new Error("The timeout has been reached while waiting for the message"));
+            callback(new Error("The timeout has been reached"));
         }, timeout);
         
         function handle(response) {
@@ -72,34 +55,34 @@ function Bus(configuration, bus) {
         bus.once("message", handle);
     };
     
-    this.send = function (message, timeout, callback) {
+    var send = bus.send;
+    
+    bus.send = function (message, timeout, callback) {
         message = extend(message, {
             source: configuration.address,
             destination: BROADCAST_ADDRESS,
             data: []
         });
         
-        bus.send(message);
+        send(message);
         
         if (callback) {
-            this.wait({
+            bus.wait({
                 source: message.destination,
                 command: message.command
             }, timeout, callback);
         }
     };
     
-    this.send({ command: COMMAND_VERSION });
+    callback(bus);
 }
-
-util.inherits(Bus, events.EventEmitter);
 
 exports.version = "0.0.0";
 
 exports.configure = function (configuration) {
     configuration.bind = function (adapter, callback) {
         adapter.bind(configuration, function (bus) {
-            callback(new Bus(configuration, bus));
+            create(bus, configuration, callback);
         });
     };
     
