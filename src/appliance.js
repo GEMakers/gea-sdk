@@ -5,6 +5,9 @@
  *  
  */
 
+var util = require("util");
+var events = require("events");
+
 const COMMAND_VERSION = 0x01;
 const DISCOVERY_INTERVAL = 60000;
 
@@ -96,6 +99,8 @@ function Appliance (bus, message) {
         });
     };
 }
+
+util.inherits(Appliance, events.EventEmitter);
 
 exports.plugin = function (bus, configuration, callback) {
     var appliances = [];
