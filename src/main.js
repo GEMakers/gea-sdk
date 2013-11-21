@@ -5,87 +5,36 @@
  *  
  */
 
-var stream = require("binary-stream");
-
-const BROADCAST_ADDRESS = 0xff;
-                
-function extend(destination, source) {
-    var result = { };
-    
-    for (var key in source) {
-        result[key] = source[key];
-    }
-    
-    for (var key in destination) {
-        result[key] = destination[key];
-    }
-    
-    return result;
-}
-
-function matches(expected, message) {
-    for (var key in expected) {
-        if (expected[key] != message[key]) {
-            return false;
-        }
-    }
-    
-    return true;
-}
-
-function create(bus, configuration, callback) {
-    bus.wait = function(message, timeout, callback) {
-        var timer = setTimeout(function() {
-            timer = null;
-            callback(new Error("The timeout has been reached"));
-        }, timeout);
-        
-        function handle(response) {
-            if (timer) {
-                if (matches(message, response)) {
-                    clearTimeout(timer);
-                    callback(null, response);
-                }
-                else {
-                    bus.once("message", handle);
-                }
-            }
-        }
-        
-        bus.once("message", handle);
-    };
-    
-    var send = bus.send;
-    
-    bus.send = function (message, timeout, callback) {
-        message = extend(message, {
-            source: configuration.address,
-            destination: BROADCAST_ADDRESS,
-            data: []
-        });
-        
-        send(message);
-        
-        if (callback) {
-            bus.wait({
-                source: message.destination,
-                command: message.command
-            }, timeout, callback);
-        }
-    };
-    
-    callback(bus);
-}
+var command = require("./command.js");
+var erd = require("./erd.js");
+var appliance = require("./appliance.js");
 
 exports.version = "0.0.0";
 
 exports.configure = function (configuration) {
     configuration.bind = function (adapter, callback) {
-        adapter.bind(configuration, function (bus) {
-            create(bus, configuration, callback);
-        });
+        adapter.bind(configuration, callback);
+    };
+};
+
+exports.configure = function (configuration) {
+    configuration.bind = function (adapter, callback) {
+        adapter.bind(configuration, callback);
     };
     
-    return configuration;
+    configuration.plugin = function (plugin) {
+        var bind = configuration.bind;
+        
+        configuration.bind = function (adapter, callback) {
+            bind(adapter, function (bus) {
+                plugin.plugin(bus, configuration, callback);
+            });
+        };
+        
+        return configuration;
+    };
+    
+    return configuration.plugin(command).plugin(erd).plugin(appliance);
 };
+
 
