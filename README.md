@@ -118,23 +118,25 @@ var app = gea.configure({
 // load the range plugin
 app.plugin(require("gea-plugin-range"));
 
+// bind to the adapter to access the bus
 app.bind(adapter, function (bus) {
+
     // wait for a range to be discovered
-    bus.on("range", function (range) {
-        console.log("range version:", range.version);
+    bus.once("range", function (range) {
+        console.log("range version:", range.version.join("."));
         
-        // listen for changes to remote enable button
-        range.on("remoteEnable", function (value) {
-            console.log("remote control is " + (value > 0 ? "enabled" : "disabled"));
+        // read the cook mode
+        range.upperOvenCookMode.read(function (value) {
+            console.log("upperOvenCookMode:", value);
         });
         
-        // listen for key press events
-        range.on("keyPress", function (value) {
-            console.log("the last key pressed was " + value);
+        // listen for changes to the cook mode
+        range.upperOvenCookMode.subscribe(function (value) {
+            console.log("upperOvenCookMode updated:", value);
         });
         
-        // start a cook mode
-        range.upperOven.cook({
+        // start cooking
+        range.upperOvenCookMode.write({
             mode: 18,
             cookTemperature: 350,
             cookHours: 1,
