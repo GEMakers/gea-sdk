@@ -109,26 +109,47 @@ function Appliance (bus, versionResponse) {
         });
     };
     
+    function getItem (item) {
+        var name, type, size, default_value;
+        var split = item.split(":");
+        
+        if (split.length == 1) {
+            // type@size
+            split = split[0].split("@");
+            type = split[0];
+            size = split[1];
+        }
+        else {
+            // name:type@size:default
+            name = split[0];
+            default_value = split[2];
+            split = split[1].split("@");
+            type = split[0];
+            size = split[1];
+        }
+        
+        return {
+            name: name,
+            type: type,
+            size: size,
+            default: default_value
+        };
+    }
+    
     this.erd = function (type) {
         function read(reader, item, value) {
-            var split = item.split(":");
-            var name = split[0];
-            var value_type = split[1];
-            
-            value[name] = reader["read" + value_type]();
+            var i = getItem(item);
+            value[i.name] = reader["read" + i.type](i.size);
         }
         
         function write(writer, item, value) {
-            var split = item.split(":");
-            var name = split[0];
-            var value_type = split[1];
-            var value_default = split[2];
+            var i = getItem(item);
             
-            if (value[name] == undefined) {
-                writer["write" + value_type](value_default);
+            if (value[i.name] == undefined) {
+                writer["write" + i.type](i.default);
             }
             else {
-                writer["write" + value_type](value[name]);
+                writer["write" + i.type](i.value[i.name]);
             }
         }
     
@@ -158,15 +179,17 @@ function Appliance (bus, versionResponse) {
         }
         else {
             type.serialize = function (value, callback) {
+                var i = getItem(type.format);
                 var writer = new stream.Writer(MAX_ERD_LENGTH, type.endian);
-                writer["write" + type.format](value);
+                writer["write" + i.type](value);
                 callback(writer.toArray());
                 delete writer;
             };
             
             type.deserialize = function (data, callback) {
+                var i = getItem(type.format);
                 var reader = new stream.Reader(data, type.endian);
-                var value = reader["read" + type.format]();
+                var value = reader["read" + i.type](i.size);
                 callback(value);
                 delete reader;
             };
