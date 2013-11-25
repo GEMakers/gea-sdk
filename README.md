@@ -126,17 +126,17 @@ app.bind(adapter, function (bus) {
         console.log("range version:", range.version.join("."));
         
         // read the cook mode
-        range.upperOvenCookMode.read(function (value) {
+        range.upperOven.cookMode.read(function (value) {
             console.log("upperOvenCookMode:", value);
         });
         
         // listen for changes to the cook mode
-        range.upperOvenCookMode.subscribe(function (value) {
+        range.upperOven.cookMode.subscribe(function (value) {
             console.log("upperOvenCookMode updated:", value);
         });
         
         // start cooking
-        range.upperOvenCookMode.write({
+        range.upperOven.cookMode.write({
             mode: 18,
             cookTemperature: 350,
             cookHours: 1,
