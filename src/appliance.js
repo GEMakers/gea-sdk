@@ -7,25 +7,35 @@
 
 var util = require("util");
 var events = require("events");
+var stream = require("binary-stream");
 
+const MAX_ERD_LENGTH = 128;
 const COMMAND_VERSION = 0x01;
 const DISCOVERY_INTERVAL = 60000;
 
-function Appliance (bus, message) {
-    this.address = message.source;
-    this.version = message.data;
+function Appliance (bus, versionResponse) {
+    var self = this;
+    
+    this.address = versionResponse.source;
+    this.version = versionResponse.data;
     
     function isResponse (response) {
-        return response.source == message.source &&
-            response.destination == message.destination;
+        return response.source == versionResponse.source &&
+            response.destination == versionResponse.destination;
     }
+    
+    bus.on("message", function (message) {
+        if (versionResponse.source == message.source) {
+            self.emit("message", message);
+        }
+    });
     
     this.send = function (command, data) {
         bus.send({
             command: command,
             data: data,
-            source: message.destination,
-            destination: message.source
+            source: versionResponse.destination,
+            destination: versionResponse.source
         });
     };
     
@@ -45,8 +55,8 @@ function Appliance (bus, message) {
     
         bus.read({
             erd: erd,
-            source: message.destination,
-            destination: message.source
+            source: versionResponse.destination,
+            destination: versionResponse.source
         });
     };
     
@@ -54,7 +64,7 @@ function Appliance (bus, message) {
         if (callback) {
             function handle (response) {
                 if (isResponse(response) && response.erd == erd) {
-                    callback(response.data);
+                    callback();
                 }
                 else {
                     bus.once("write-response", handle);
@@ -67,8 +77,8 @@ function Appliance (bus, message) {
         bus.write({
             erd: erd,
             data: data,
-            source: message.destination,
-            destination: message.source
+            source: versionResponse.destination,
+            destination: versionResponse.source
         });
     };
     
@@ -85,8 +95,8 @@ function Appliance (bus, message) {
     
         bus.subscribe({
             erd: erd,
-            source: message.destination,
-            destination: message.source
+            source: versionResponse.destination,
+            destination: versionResponse.source
         });
     };
     
@@ -94,9 +104,93 @@ function Appliance (bus, message) {
         bus.publish({
             erd: erd,
             data: data,
-            source: message.destination,
-            destination: message.source
+            source: versionResponse.destination,
+            destination: versionResponse.source
         });
+    };
+    
+    this.erd = function (type) {
+        function read(reader, item, value) {
+            var split = item.split(":");
+            var name = split[0];
+            var value_type = split[1];
+            
+            value[name] = reader["read" + value_type]();
+        }
+        
+        function write(writer, item, value) {
+            var split = item.split(":");
+            var name = split[0];
+            var value_type = split[1];
+            var value_default = split[2];
+            
+            if (value[name] == undefined) {
+                writer["write" + value_type](value_default);
+            }
+            else {
+                writer["write" + value_type](value[name]);
+            }
+        }
+    
+        if (util.isArray(type.format)) {
+            type.serialize = function (value, callback) {
+                var writer = new stream.Writer(MAX_ERD_LENGTH, type.endian);
+                
+                for (var i = 0; i < type.format.length; i++) {
+                    write(writer, type.format[i], value);
+                }
+                
+                callback(writer.toArray());
+                delete writer;
+            };
+            
+            type.deserialize = function (data, callback) {
+                var reader = new stream.Reader(data, type.endian);
+                var value = { };
+                
+                for (var i = 0; i < type.format.length; i++) {
+                    read(reader, type.format[i], value);
+                }
+                
+                callback(value);
+                delete reader;
+            };
+        }
+        else {
+            type.serialize = function (value, callback) {
+                var writer = new stream.Writer(MAX_ERD_LENGTH, type.endian);
+                writer["write" + type.format](value);
+                callback(writer.toArray());
+                delete writer;
+            };
+            
+            type.deserialize = function (data, callback) {
+                var reader = new stream.Reader(data, type.endian);
+                var value = reader["read" + type.format]();
+                callback(value);
+                delete reader;
+            };
+        }
+        
+        type.read = function (callback) {
+            self.read(type.erd, function (data) {
+                type.deserialize(data, callback);
+            });
+        };
+        
+        type.write = function (value, callback) {
+            type.serialize(value, function (data) {
+                self.write(type.erd, data, callback);
+            });
+        };
+        
+        type.subscribe = function (callback) {
+            self.subscribe(type.erd, function (data) {
+                type.deserialize(data, callback);
+            });
+        };
+        
+        return type;
     };
 }
 
