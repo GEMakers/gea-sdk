@@ -9,33 +9,54 @@ var util = require("util");
 var events = require("events");
 var stream = require("binary-stream");
 
-const MAX_ERD_LENGTH = 128;
+const MAX_SERIALIZED_LENGTH = 128;
+const COMMAND_POLL_INTERVAL = 200;
+
 const COMMAND_VERSION = 0x01;
 const DISCOVERY_INTERVAL = 60000;
 
-function Appliance (bus, versionResponse) {
-    var self = this;
+function arrayEquals (a, b) {
+    for (var i = 0; i < a.length; i++) {
+        if (a[i] != b[i]) return false;
+    }
     
-    this.address = versionResponse.source;
-    this.version = versionResponse.data;
+    return a.length == b.length;
+}
+
+function Endpoint (bus, source, destination) {
+    var self = this;
+    this.address = destination;
     
     function isResponse (response) {
-        return response.source == versionResponse.source &&
-            response.destination == versionResponse.destination;
+        return response.source == destination &&
+            response.destination == source;
     }
     
     bus.on("message", function (message) {
-        if (versionResponse.source == message.source) {
+        if (message.source == destination) {
             self.emit("message", message);
         }
     });
     
-    this.send = function (command, data) {
+    this.send = function (command, data, callback) {
+        if (callback) {
+            function handle (response) {
+                if (isResponse(response) && response.command == command) {
+                    callback(response.data);
+                }
+                else {
+                    bus.once("message", handle);
+                }
+            }
+            
+            bus.once("message", handle);
+        }
+        
         bus.send({
             command: command,
             data: data,
-            source: versionResponse.destination,
-            destination: versionResponse.source
+            source: source,
+            destination: destination
         });
     };
     
@@ -55,8 +76,8 @@ function Appliance (bus, versionResponse) {
     
         bus.read({
             erd: erd,
-            source: versionResponse.destination,
-            destination: versionResponse.source
+            source: source,
+            destination: destination
         });
     };
     
@@ -77,8 +98,8 @@ function Appliance (bus, versionResponse) {
         bus.write({
             erd: erd,
             data: data,
-            source: versionResponse.destination,
-            destination: versionResponse.source
+            source: source,
+            destination: destination
         });
     };
     
@@ -95,8 +116,8 @@ function Appliance (bus, versionResponse) {
     
         bus.subscribe({
             erd: erd,
-            source: versionResponse.destination,
-            destination: versionResponse.source
+            source: source,
+            destination: destination
         });
     };
     
@@ -104,46 +125,46 @@ function Appliance (bus, versionResponse) {
         bus.publish({
             erd: erd,
             data: data,
-            source: versionResponse.destination,
-            destination: versionResponse.source
+            source: source,
+            destination: destination
         });
     };
     
-    function getItem (item) {
-        var name, type, size, default_value;
-        var split = item.split(":");
-        
-        if (split.length == 1) {
-            // type@size
-            split = split[0].split("@");
-            type = split[0];
-            size = split[1];
+    this.item = function (type) {
+        function parse (item) {
+            var name, type, size, default_value;
+            var split = item.split(":");
+            
+            if (split.length == 1) {
+                // type@size
+                split = split[0].split("@");
+                type = split[0];
+                size = split[1];
+            }
+            else {
+                // name:type@size:default
+                name = split[0];
+                default_value = split[2];
+                split = split[1].split("@");
+                type = split[0];
+                size = split[1];
+            }
+            
+            return {
+                name: name,
+                type: type,
+                size: size,
+                default: default_value
+            };
         }
-        else {
-            // name:type@size:default
-            name = split[0];
-            default_value = split[2];
-            split = split[1].split("@");
-            type = split[0];
-            size = split[1];
-        }
-        
-        return {
-            name: name,
-            type: type,
-            size: size,
-            default: default_value
-        };
-    }
     
-    this.erd = function (type) {
-        function read(reader, item, value) {
-            var i = getItem(item);
+        function read (reader, item, value) {
+            var i = parse(item);
             value[i.name] = reader["read" + i.type](i.size);
         }
         
-        function write(writer, item, value) {
-            var i = getItem(item);
+        function write (writer, item, value) {
+            var i = parse(item);
             
             if (value[i.name] == undefined) {
                 writer["write" + i.type](i.default);
@@ -155,7 +176,7 @@ function Appliance (bus, versionResponse) {
     
         if (util.isArray(type.format)) {
             type.serialize = function (value, callback) {
-                var writer = new stream.Writer(MAX_ERD_LENGTH, type.endian);
+                var writer = new stream.Writer(MAX_SERIALIZED_LENGTH, type.endian);
                 
                 for (var i = 0; i < type.format.length; i++) {
                     write(writer, type.format[i], value);
@@ -179,15 +200,15 @@ function Appliance (bus, versionResponse) {
         }
         else {
             type.serialize = function (value, callback) {
-                var i = getItem(type.format);
-                var writer = new stream.Writer(MAX_ERD_LENGTH, type.endian);
+                var i = parse(type.format);
+                var writer = new stream.Writer(MAX_SERIALIZED_LENGTH, type.endian);
                 writer["write" + i.type](value);
                 callback(writer.toArray());
                 delete writer;
             };
             
             type.deserialize = function (data, callback) {
-                var i = getItem(type.format);
+                var i = parse(type.format);
                 var reader = new stream.Reader(data, type.endian);
                 var value = reader["read" + i.type](i.size);
                 callback(value);
@@ -195,6 +216,45 @@ function Appliance (bus, versionResponse) {
             };
         }
         
+        return type;
+    };
+    
+    this.command = function (type) {
+        this.item(type);
+        
+        type.read = function (callback) {
+            self.send(type.command, [], function (data) {
+                type.deserialize(data, callback);
+            });
+        };
+        
+        type.write = function (value, callback) {
+            type.serialize(value, function (data) {
+                self.send(type.command, data, callback);
+            });
+        };
+        
+        type.subscribe = function (callback) {
+            var state = [];
+            
+            function update () {
+                self.send(type.command, [], function (data) {
+                    if (!arrayEquals(state, data)) {
+                        state = data;
+                        type.deserialize(data, callback);
+                    }
+                });
+            }
+            
+            setInterval(update, COMMAND_POLL_INTERVAL);
+        };
+        
+        return type;
+    };
+    
+    this.erd = function (type) {
+        this.item(type);
+    
         type.read = function (callback) {
             self.read(type.erd, function (data) {
                 type.deserialize(data, callback);
@@ -217,7 +277,14 @@ function Appliance (bus, versionResponse) {
     };
 }
 
-util.inherits(Appliance, events.EventEmitter);
+util.inherits(Endpoint, events.EventEmitter);
+
+function Appliance (bus, source, destination, version) {
+    var endpoint = new Endpoint(bus, source, destination);
+    endpoint.version = version;
+    
+    return endpoint;
+}
 
 exports.plugin = function (bus, configuration, callback) {
     var appliances = [];
@@ -228,17 +295,21 @@ exports.plugin = function (bus, configuration, callback) {
                 /* we already have the appliance in the list */
             }
             else {
-                var appliance = new Appliance(bus, message);
+                var appliance = new Appliance(bus,
+                    message.destination, message.source, message.data);
+                    
                 appliances[message.source] = appliance;
                 bus.emit("appliance", appliance);
             }
         }
     });
     
+    bus.endpoint = function (address) {
+        return new Endpoint(bus, configuration.address, address);
+    };
+    
     function discover() {
-        bus.send({
-            command: COMMAND_VERSION
-        });
+        bus.send({ command: COMMAND_VERSION });
     }
     
     setInterval(discover, DISCOVERY_INTERVAL);
