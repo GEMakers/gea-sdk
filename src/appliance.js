@@ -290,16 +290,28 @@ exports.plugin = function (bus, configuration, callback) {
     var appliances = [];
     
     bus.on("message", function (message) {
-        if (message.command == COMMAND_VERSION && message.data.length > 0) {
-            if (appliances[message.source]) {
-                /* we already have the appliance in the list */
+        if (message.command == COMMAND_VERSION) {
+            if (message.data.length == 0) {
+                if (configuration.version) {
+                    bus.send({
+                        command: COMMAND_VERSION,
+                        data: configuration.version,
+                        source: configuration.address,
+                        destination: message.source
+                    });
+                }
             }
             else {
-                var appliance = new Appliance(bus,
-                    message.destination, message.source, message.data);
-                    
-                appliances[message.source] = appliance;
-                bus.emit("appliance", appliance);
+                if (appliances[message.source]) {
+                    /* we already have the appliance in the list */
+                }
+                else {
+                    var appliance = new Appliance(bus,
+                        message.destination, message.source, message.data);
+                        
+                    appliances[message.source] = appliance;
+                    bus.emit("appliance", appliance);
+                }
             }
         }
     });
@@ -317,4 +329,3 @@ exports.plugin = function (bus, configuration, callback) {
     
     callback(bus);
 };
-
