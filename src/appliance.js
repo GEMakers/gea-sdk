@@ -13,7 +13,7 @@ const MAX_SERIALIZED_LENGTH = 128;
 const COMMAND_POLL_INTERVAL = 200;
 
 const COMMAND_VERSION = 0x01;
-const DISCOVERY_INTERVAL = 60000;
+const DISCOVERY_INTERVAL = 1000;
 
 function arrayEquals (a, b) {
     for (var i = 0; i < a.length; i++) {
@@ -22,6 +22,95 @@ function arrayEquals (a, b) {
     
     return a.length == b.length;
 }
+
+function Item (type) {
+    function parse (item) {
+        var name, type, size, default_value;
+        var split = item.split(":");
+        
+        if (split.length == 1) {
+            // type@size
+            split = split[0].split("@");
+            type = split[0];
+            size = split[1];
+        }
+        else {
+            // name:type@size:default
+            name = split[0];
+            default_value = split[2];
+            split = split[1].split("@");
+            type = split[0];
+            size = split[1];
+        }
+        
+        return {
+            name: name,
+            type: type,
+            size: size,
+            default: default_value
+        };
+    }
+
+    function read (reader, item, value) {
+        var i = parse(item);
+        value[i.name] = reader["read" + i.type](i.size);
+    }
+    
+    function write (writer, item, value) {
+        var i = parse(item);
+        
+        if (value[i.name] == undefined) {
+            writer["write" + i.type](i.default);
+        }
+        else {
+            writer["write" + i.type](i.value[i.name]);
+        }
+    }
+
+    if (util.isArray(type.format)) {
+        this.serialize = function (value, callback) {
+            var writer = new stream.Writer(MAX_SERIALIZED_LENGTH, type.endian);
+            
+            for (var i = 0; i < type.format.length; i++) {
+                write(writer, type.format[i], value);
+            }
+            
+            callback(writer.toArray());
+            delete writer;
+        };
+        
+        this.deserialize = function (data, callback) {
+            var reader = new stream.Reader(data, type.endian);
+            var value = { };
+            
+            for (var i = 0; i < type.format.length; i++) {
+                read(reader, type.format[i], value);
+            }
+            
+            callback(value);
+            delete reader;
+        };
+    }
+    else {
+        this.serialize = function (value, callback) {
+            var i = parse(type.format);
+            var writer = new stream.Writer(MAX_SERIALIZED_LENGTH, type.endian);
+            writer["write" + i.type](value);
+            callback(writer.toArray());
+            delete writer;
+        };
+        
+        this.deserialize = function (data, callback) {
+            var i = parse(type.format);
+            var reader = new stream.Reader(data, type.endian);
+            var value = reader["read" + i.type](i.size);
+            callback(value);
+            delete reader;
+        };
+    }
+}
+
+util.inherits(Item, events.EventEmitter);
 
 function Endpoint (bus, source, destination) {
     var self = this;
@@ -32,9 +121,26 @@ function Endpoint (bus, source, destination) {
             response.destination == source;
     }
     
+    function isNotFiltered (message) {
+        return message.destination == source ||
+            message.destination == destination;
+    }
+    
     bus.on("message", function (message) {
-        if (message.source == destination) {
+        if (isNotFiltered(message)) {
             self.emit("message", message);
+        }
+    });
+    
+    bus.on("read", function (message, callback) {
+        if (isNotFiltered(message)) {
+            self.emit("read", message, callback);
+        }
+    });
+    
+    bus.on("write", function (message, callback) {
+        if (isNotFiltered(message)) {
+            self.emit("write", message, callback);
         }
     });
     
@@ -131,117 +237,32 @@ function Endpoint (bus, source, destination) {
     };
     
     this.item = function (type) {
-        function parse (item) {
-            var name, type, size, default_value;
-            var split = item.split(":");
-            
-            if (split.length == 1) {
-                // type@size
-                split = split[0].split("@");
-                type = split[0];
-                size = split[1];
-            }
-            else {
-                // name:type@size:default
-                name = split[0];
-                default_value = split[2];
-                split = split[1].split("@");
-                type = split[0];
-                size = split[1];
-            }
-            
-            return {
-                name: name,
-                type: type,
-                size: size,
-                default: default_value
-            };
-        }
-    
-        function read (reader, item, value) {
-            var i = parse(item);
-            value[i.name] = reader["read" + i.type](i.size);
-        }
-        
-        function write (writer, item, value) {
-            var i = parse(item);
-            
-            if (value[i.name] == undefined) {
-                writer["write" + i.type](i.default);
-            }
-            else {
-                writer["write" + i.type](i.value[i.name]);
-            }
-        }
-    
-        if (util.isArray(type.format)) {
-            type.serialize = function (value, callback) {
-                var writer = new stream.Writer(MAX_SERIALIZED_LENGTH, type.endian);
-                
-                for (var i = 0; i < type.format.length; i++) {
-                    write(writer, type.format[i], value);
-                }
-                
-                callback(writer.toArray());
-                delete writer;
-            };
-            
-            type.deserialize = function (data, callback) {
-                var reader = new stream.Reader(data, type.endian);
-                var value = { };
-                
-                for (var i = 0; i < type.format.length; i++) {
-                    read(reader, type.format[i], value);
-                }
-                
-                callback(value);
-                delete reader;
-            };
-        }
-        else {
-            type.serialize = function (value, callback) {
-                var i = parse(type.format);
-                var writer = new stream.Writer(MAX_SERIALIZED_LENGTH, type.endian);
-                writer["write" + i.type](value);
-                callback(writer.toArray());
-                delete writer;
-            };
-            
-            type.deserialize = function (data, callback) {
-                var i = parse(type.format);
-                var reader = new stream.Reader(data, type.endian);
-                var value = reader["read" + i.type](i.size);
-                callback(value);
-                delete reader;
-            };
-        }
-        
-        return type;
+        return new Item(type);
     };
     
     this.command = function (type) {
-        this.item(type);
+        var item = this.item(type);
         
-        type.read = function (callback) {
+        item.read = function (callback) {
             self.send(type.command, [], function (data) {
-                type.deserialize(data, callback);
+                item.deserialize(data, callback);
             });
         };
         
-        type.write = function (value, callback) {
-            type.serialize(value, function (data) {
+        item.write = function (value, callback) {
+            item.serialize(value, function (data) {
                 self.send(type.command, data, callback);
             });
         };
         
-        type.subscribe = function (callback) {
+        item.subscribe = function (callback) {
             var state = [];
             
             function update () {
                 self.send(type.command, [], function (data) {
                     if (!arrayEquals(state, data)) {
                         state = data;
-                        type.deserialize(data, callback);
+                        item.deserialize(data, callback);
                     }
                 });
             }
@@ -249,31 +270,39 @@ function Endpoint (bus, source, destination) {
             setInterval(update, COMMAND_POLL_INTERVAL);
         };
         
-        return type;
+        return item;
     };
     
     this.erd = function (type) {
-        this.item(type);
+        var item = this.item(type);
     
-        type.read = function (callback) {
+        item.read = function (callback) {
             self.read(type.erd, function (data) {
-                type.deserialize(data, callback);
+                item.deserialize(data, callback);
             });
         };
         
-        type.write = function (value, callback) {
-            type.serialize(value, function (data) {
+        item.write = function (value, callback) {
+            item.serialize(value, function (data) {
                 self.write(type.erd, data, callback);
             });
         };
         
-        type.subscribe = function (callback) {
+        item.subscribe = function (callback) {
             self.subscribe(type.erd, function (data) {
-                type.deserialize(data, callback);
+                item.deserialize(data, callback);
             });
         };
         
-        return type;
+        self.on("read", function (request, callback) {
+            if (request.erd == request.erd) {
+                item.emit("read", function (value) {
+                    item.serialize(value, callback);
+                });
+            }
+        });
+        
+        return item;
     };
 }
 
@@ -318,6 +347,10 @@ exports.plugin = function (bus, configuration, callback) {
     
     bus.endpoint = function (address) {
         return new Endpoint(bus, configuration.address, address);
+    };
+    
+    bus.create = function (name, callback) {
+        callback(bus.endpoint(configuration.address));
     };
     
     function discover() {
