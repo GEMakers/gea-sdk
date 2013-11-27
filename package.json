@@ -8,6 +8,9 @@
         "type": "git", "url": "https://github.com/GEMakers/gea-sdk.git"
     },
     "main" : "src/main.js",
-    "version" : "0.0.0"
+    "version" : "0.0.0",
+    "dependencies": {
+        "binary-stream": "git+https://github.com/GEMakers/binary-stream.git"
+    }
 }
 
