@@ -21,19 +21,46 @@ exports.plugin = function (bus, configuration, callback) {
             if (message.data.length == count * 2 + 1) {
                 for (var i = 0; i < count; i++) {
                     var erd = reader.readUInt16();
-           
+                    
+                    function readResponse (data) {
+                        if (data == undefined) {
+                            bus.send({
+                                command: COMMAND_ERD_READ,
+                                data: [ 0 ],
+                                source: configuration.address,
+                                destination: message.source
+                            });
+                        }
+                        else {
+                            var writer = new stream.Writer(data.length + 4, stream.BIG_ENDIAN);
+                            writer.writeUInt8(1);
+                            writer.writeUInt16(erd);
+                            writer.writeUInt8(data.length);
+                            writer.writeBytes(data);
+                        
+                            bus.send({
+                                command: COMMAND_ERD_READ,
+                                data: writer.toArray(),
+                                source: configuration.address,
+                                destination: message.source
+                            });
+                            
+                            delete writer;
+                        }
+                    }
+                    
                     bus.emit("read", {
                         erd: erd,
                         source: message.source,
                         destination: message.destination
-                    });
+                    }, readResponse);
                 }
             }
             else {
                 for (var i = 0; i < count; i++) {
                     var erd = reader.readUInt16();
                     var data = reader.readBytes(reader.readUInt8());
-           
+
                     bus.emit("read-response", {
                         erd: erd,
                         data: data,
@@ -64,13 +91,38 @@ exports.plugin = function (bus, configuration, callback) {
                 for (var i = 0; i < count; i++) {
                     var erd = reader.readUInt16();
                     var data = reader.readBytes(reader.readUInt8());
-           
+
+                    function writeResponse (error) {
+                        if (error) {
+                            bus.send({
+                                command: COMMAND_ERD_WRITE,
+                                data: [ 0 ],
+                                source: configuration.address,
+                                destination: message.source
+                            });
+                        }
+                        else {
+                            var writer = new stream.Writer(3, stream.BIG_ENDIAN);
+                            writer.writeUInt8(1);
+                            writer.writeUInt16(erd);
+                        
+                            bus.send({
+                                command: COMMAND_ERD_WRITE,
+                                data: writer.toArray(),
+                                source: configuration.address,
+                                destination: message.source
+                            });
+                            
+                            delete writer;
+                        }
+                    }
+                    
                     self.emit("write", {
                         erd: erd,
                         data: data,
                         source: message.source,
                         destination: message.destination
-                    });
+                    }, writeResponse);
                 }
             }
             
@@ -191,4 +243,3 @@ exports.plugin = function (bus, configuration, callback) {
     
     callback(bus);
 };
-
