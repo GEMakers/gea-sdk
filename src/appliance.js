@@ -63,7 +63,7 @@ function Item (type) {
             writer["write" + i.type](i.default);
         }
         else {
-            writer["write" + i.type](i.value[i.name]);
+            writer["write" + i.type](value[i.name]);
         }
     }
 
@@ -270,6 +270,35 @@ function Endpoint (bus, source, destination) {
             setInterval(update, COMMAND_POLL_INTERVAL);
         };
         
+        self.on("message", function (message) {
+            if (message.command == type.command) {
+                if (message.data.length == 0) {
+                    item.emit("read", function (value) {
+                        if (value == undefined) {
+                            /* there is error handling for commands */
+                        }
+                        else {
+                            item.serialize(value, function (data) {
+                                bus.send({
+                                    command: type.command,
+                                    data: data,
+                                    source: destination,
+                                    destination: message.source
+                                });
+                            });
+                        }
+                    });
+                }
+                else {
+                    item.deserialize(message.data, function (value) {
+                        item.emit("write", value, function (error) {
+                            /* there is error handling for commands */
+                        });
+                    });
+                }
+            }
+        });
+        
         return item;
     };
     
@@ -295,7 +324,7 @@ function Endpoint (bus, source, destination) {
         };
         
         self.on("read", function (request, callback) {
-            if (request.erd == request.erd) {
+            if (request.erd == type.erd) {
                 item.emit("read", function (value) {
                     item.serialize(value, callback);
                 });
@@ -345,8 +374,8 @@ exports.plugin = function (bus, configuration, callback) {
         }
     });
     
-    bus.endpoint = function (address) {
-        return new Endpoint(bus, configuration.address, address);
+    bus.endpoint = function (source, destination) {
+        return new Endpoint(bus, source, destination);
     };
     
     bus.create = function (name, callback) {
