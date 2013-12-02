@@ -331,6 +331,14 @@ function Endpoint (bus, source, destination) {
             }
         });
         
+        self.on("write", function (request, callback) {
+            if (request.erd == type.erd) {
+                item.deserialize(request.data, function (value) {
+                    item.emit("write", value, callback);
+                });
+            }
+        });
+        
         return item;
     };
 }

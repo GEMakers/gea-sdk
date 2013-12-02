@@ -117,7 +117,7 @@ exports.plugin = function (bus, configuration, callback) {
                         }
                     }
                     
-                    self.emit("write", {
+                    bus.emit("write", {
                         erd: erd,
                         data: data,
                         source: message.source,
