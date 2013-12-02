@@ -4,11 +4,22 @@ This node.js package provides a framework for communicating with General Electri
 There are three distinct APIs available for communicating to an appliance.
 Each API offers a unique level of abstraction to suit as many different technical levels as possible.
 
-## Command API
-This is the lowest level of the API and provides no abstraction in the communication layer.
-At this level, all communication is handled by sending GEA commands between endpoints.
-This is identical to the internal appliance communication.
-There are only two operations for this API: sending a message, and receiving a message.
+## Installation
+To install this package using the node.js package manager, issue the following commands:
+
+```
+npm install git+https://github.com/GEMakers/gea-sdk.git
+```
+
+## API
+Below is the documentation for each of the functions provided by this package, as well as a few examples showing how to use them.
+
+### *gea.configure(configuration)*
+This function will configure settings for an application using the SDK.
+An application object is returned that may be used to bind to the bus.
+The *configuration* object has the following fields:
+- address (the default source address for outgoing messages sent from the application)
+- version (the version of the application, *defaults to undefined*)
 
 ``` javascript
 var gea = require("gea-sdk");
@@ -16,35 +27,86 @@ var adapter = require("gea-adapter-usb");
 
 // configure the application
 var app = gea.configure({
-    address: 0xcb
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+```
+
+### *application.plugin(plugin)*
+This function will load the *plugin* as an extension to the application.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// load the plugin to gain access to refrigerator functions
+app.plugin(require("gea-plugin-refrigerator"));
+```
+
+### *application.bind(adapter, callback)*
+This function will use the *adapter* to bind to an address on the bus.
+The *callback* will be called for each instance of the bus that was found.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
 });
 
 // bind to the adapter to access the bus
 app.bind(adapter, function (bus) {
-    bus.on("error", function (error) {
-        console.error("error:", error);
-    });
-    
-    bus.on("message", function (message) {
-        console.log("received a message:", message);
-    });
-    
+    console.log("bind was successful");
+});
+```
+
+### *bus.send(message)*
+This function will send a message to an endpoint on the *bus*.
+The *message* object has the following fields:
+- command (the command identifier of the message)
+- data (the command payload represented as an array of bytes, *defaults to []*)
+- destination (the address to send the message to, *defaults to broadcast address 0xff*)
+- source (the address that is sending the message, *defaults to configuration address*)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
     // send a message
     bus.send({
-        destination: 0x80,
-        command: 0xf1,
-        data: [0x01, 0x51, 0x00, 0x0d,
-               0x12, 0x01, 0x5e, 0x01, 0x00,
-               0x00, 0x00, 0x00, 0x00, 0x00,0x00, 0x00, 0x00]
+        command: 0x01,
+        data: [ 1, 2, 3, 4 ],
+        source: 0xcb,
+        destination: 0xff
     });
 });
 ```
 
-## ERD API
-This is the middle level of the API and provides limited abstraction in the communication layer.
-At this level, all communication is handled by requesting an Entity Reference Designator (ERD).
-An ERD is a single piece of data (such as a temperature or a door status) that can be manipulated independently.
-There are four operations available for each ERD in this API: read, write, publish, and subscribe.
+### *bus.on("message", callback)*
+This event is emitted when a message is received on the *bus*.
+The *message* object has the following fields:
+- command (the command identifier of the message)
+- data (the command payload represented as an array of bytes)
+- destination (the address to send the message to)
+- source (the address that is sending the message)
 
 ``` javascript
 var gea = require("gea-sdk");
@@ -52,98 +114,332 @@ var adapter = require("gea-adapter-usb");
 
 // configure the application
 var app = gea.configure({
-    address: 0xcb
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
 });
 
 // bind to the adapter to access the bus
 app.bind(adapter, function (bus) {
-    bus.on("read", function (erd) {
-        console.log("received a read request:", erd);
-    });
-    
-    bus.on("write", function (erd) {
-        console.log("received a write request:", erd);
-    });
-    
-    bus.on("subscribe", function (erd) {
-        console.log("received a subscribe request:", erd);
-    });
-    
-    bus.on("publish", function (erd) {
-        console.log("received a publish:", erd);
-    });
-    
-    // read the value of an ERD
-    bus.read({
-        destination: 0x80,
-        erd: 0x5100
-    });
-    
-    // write the value of an ERD
-    bus.write({
-        destination: 0x80,
-        erd: 0x5100,
-        data: [ 0x12, 0x01, 0x5e, 0x01, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ]
-    });
-    
-    // subscribe to changes for an ERD
-    bus.subscribe({
-        destination: 0x80,
-        erd: 0x5100
-    });
-    
-    // publish an updated value for an ERD
-    bus.publish({
-        destination: 0x80,
-        erd: 0x5100,
-        data: [ 0x12, 0x01, 0x5e, 0x01, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ]
+
+    // listen for messages on the bus
+    bus.on("message", function (message) {
+        console.log("message:", message);
     });
 });
 ```
 
-## Appliance API
-This is the highest level of the API and provides complete abstraction from the communication layer.
-At this level, all communication is handled by the framework.
-Events are emitted when appliances are discovered and appliances are provided as objects.
-The functions for each appliance is provided by an SDK plugin and may vary in abstraction.
+### *bus.read(erd)*
+This function will read an Entity Reference Designator (ERD) from an endpoint on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- destination (the address that owns the ERD, *defaults to broadcast address 0xff*)
+- source (the address that is requesting the ERD read, *defaults to configuration address*)
 
 ``` javascript
 var gea = require("gea-sdk");
 var adapter = require("gea-adapter-usb");
 
+// configure the application
 var app = gea.configure({
-    address: 0xcb
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
 });
-
-// load the range plugin
-app.plugin(require("gea-plugin-range"));
 
 // bind to the adapter to access the bus
 app.bind(adapter, function (bus) {
 
-    // wait for a range to be discovered
-    bus.once("range", function (range) {
-        console.log("range version:", range.version.join("."));
-        
-        // read the cook mode
-        range.upperOven.cookMode.read(function (value) {
-            console.log("upperOvenCookMode:", value);
-        });
-        
-        // listen for changes to the cook mode
-        range.upperOven.cookMode.subscribe(function (value) {
-            console.log("upperOvenCookMode updated:", value);
-        });
-        
-        // start cooking
-        range.upperOven.cookMode.write({
-            mode: 18,
-            cookTemperature: 350,
-            cookHours: 1,
-            cookMinutes: 0
-        });
+    // read an ERD
+    bus.read({
+        erd: 0x5100,
+        source: 0xcb,
+        destination: 0x80
+    });
+});
+```
+
+### *bus.on("read-response", callback)*
+This event is emitted when the response to a read request is received on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- data (the ERD data represented as an array of bytes)
+- destination (the address that requested the ERD read)
+- source (the address that responded to the ERD read request)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
+    // listen for read responses for an ERD
+    bus.on("read-response", function (erd) {
+        console.log("read response:", erd);
+    });
+});
+```
+
+### *bus.write(erd)*
+This function will write an Entity Reference Designator (ERD) from an endpoint on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- data (the ERD data represented as an array of bytes, *defaults to []*)
+- destination (the address that owns the ERD, *defaults to broadcast address 0xff*)
+- source (the address that is requesting the ERD write, *defaults to configuration address*)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
+    // write an ERD
+    bus.write({
+        source: 0xcb,
+        destination: 0x80,
+        erd: 0x5100,
+        data: [0x12, 0x01, 0x5e, 0x01, 0x00,
+               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+    });
+});
+```
+
+### *bus.on("write-response", callback)*
+This event is emitted when the response to a write request is received on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- destination (the address that requested the ERD read)
+- source (the address that responded to the ERD read request)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
+    // listen for write responses for an ERD
+    bus.on("write-response", function (erd) {
+        console.log("write response:", erd);
+    });
+});
+```
+
+### *bus.subscribe(erd)*
+This function will subscribe to changes for an Entity Reference Designator (ERD) from an endpoint on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- destination (the address that owns the ERD, *defaults to broadcast address 0xff*)
+- source (the address that is requesting the ERD subscription, *defaults to configuration address*)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
+    // write an ERD
+    bus.write({
+        source: 0xcb,
+        destination: 0x80,
+        erd: 0x5100,
+        data: [0x12, 0x01, 0x5e, 0x01, 0x00,
+               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+    });
+});
+```
+
+### *bus.on("publish", callback)*
+This event is emitted when an Entity Reference Designator (ERD) is published on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- data (the ERD data represented as an array of bytes)
+- destination (the address that subscribed to the ERD)
+- source (the address that published the ERD)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
+    // listen for publishes for an ERD
+    bus.on("publish", function (erd) {
+        console.log("publish:", erd);
+    });
+});
+```
+
+### *bus.publish(erd)*
+This function will publish changes for an Entity Reference Designator (ERD) to an endpoint on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- data (the ERD data represented as an array of bytes, *defaults to []*)
+- destination (the address to publish to, *defaults to broadcast address 0xff*)
+- source (the address that owns the ERD, *defaults to configuration address*)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0x80,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
+    // publish an ERD
+    bus.publish({
+        source: 0x80,
+        destination: 0xbf,
+        erd: 0x5100,
+        data: [0x12, 0x01, 0x5e, 0x01, 0x00,
+               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+    });
+});
+```
+
+### *bus.on("subscribe", callback)*
+This event is emitted when an endpoint requests to subscribe to an Entity Reference Designator (ERD) on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- destination (the address that subscribed to the ERD)
+- source (the address that published the ERD)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
+    // listen for publishes for an ERD
+    bus.on("subscribe", function (erd) {
+        console.log("subscribe request:", erd);
+    });
+});
+```
+
+### *bus.on("read", callback)*
+This event is emitted when an endpoint requests to read an Entity Reference Designator (ERD) on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- destination (the address that subscribed to the ERD)
+- source (the address that published the ERD)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
+    // listen for reads for an ERD
+    bus.on("read", function (erd, callback) {
+        console.log("read request:", erd);
+        // callback(); // this will return with an error
+        // callback([ 0, 0, 0, 0]); // this will return with data
+    });
+});
+```
+
+### *bus.on("write", callback)*
+This event is emitted when an endpoint requests to write an Entity Reference Designator (ERD) on the *bus*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- data (the ERD data represented as an array of bytes)
+- destination (the address that subscribed to the ERD)
+- source (the address that published the ERD)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+
+    // listen for writes for an ERD
+    bus.on("write", function (erd, callback) {
+        console.log("write request:", erd);
+        // callback(new Error("An error occurred")); // this will return with an error
+        // callback(); // this will return with success
+    });
+});
+```
+
+### *bus.on("appliance", callback)*
+This event is emitted whenever an appliance has been discovered on the bus.
+For each appliance that is discovered, the callback is called with the appliance object as an argument.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        console.log("address:", refrigerator.address);
+        console.log("version:", refrigerator.version.join("."));
     });
 });
 ```
