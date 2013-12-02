@@ -9,8 +9,6 @@ var command = require("./command.js");
 var erd = require("./erd.js");
 var appliance = require("./appliance.js");
 
-exports.version = "0.0.0";
-
 exports.configure = function (configuration) {
     configuration.bind = function (adapter, callback) {
         adapter.bind(configuration, callback);
