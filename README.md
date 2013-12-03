@@ -385,8 +385,8 @@ app.bind(adapter, function (bus) {
     // listen for reads for an ERD
     bus.on("read", function (erd, callback) {
         console.log("read request:", erd);
-        // callback(); // this will return with an error
-        // callback([ 0, 0, 0, 0]); // this will return with data
+        // callback(); // uncomment this to return an error
+        // callback([0, 0, 0, 0]); // uncomment this to return with data
     });
 });
 ```
@@ -415,8 +415,8 @@ app.bind(adapter, function (bus) {
     // listen for writes for an ERD
     bus.on("write", function (erd, callback) {
         console.log("write request:", erd);
-        // callback(new Error("An error occurred")); // this will return with an error
-        // callback(); // this will return with success
+        // callback(new Error("An error occurred")); uncomment this to return an error
+        // callback(); // uncomment this to return with success
     });
 });
 ```
@@ -438,8 +438,173 @@ var app = gea.configure({
 // bind to the adapter to access the bus
 app.bind(adapter, function (bus) {
     bus.on("appliance", function (appliance) {
-        console.log("address:", refrigerator.address);
-        console.log("version:", refrigerator.version.join("."));
+        console.log("address:", appliance.address);
+        console.log("version:", appliance.version.join("."));
+    });
+});
+```
+
+### *appliance.send(command, data, callback)*
+This function will send a command to the *appliance*.
+The *command* argument is the command identifier.
+The *data* argument is the command payload represented as an array of bytes.
+The optional *callback* argument is a function to be called when a response is received.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+
+        // send a command to the appliance
+        appliance.send(0x01, [], function (data) {
+            console.log("response:", data);
+        });
+    });
+});
+```
+
+### *appliance.on("message", callback)*
+This event is emitted when a message is received from the *appliance*.
+The *message* object has the following fields:
+- command (the command identifier of the message)
+- data (the command payload represented as an array of bytes)
+- destination (the address to send the message to)
+- source (the address that is sending the message)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+
+        // listen for messages from the appliance
+        appliance.on("message", function (message) {
+            console.log("message:", message);
+        });
+    });
+});
+```
+
+### *appliance.read(erd, callback)*
+This function will read an Entity Reference Designator (ERD) owned by the *appliance*.
+The *erd* argument is the ERD identifier.
+The optional *callback* argument is a function to be called when a response is received.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+
+        // read an ERD from the appliance
+        appliance.read(0x5100, function (data) {
+            console.log("response:", data);
+        });
+    });
+});
+```
+
+### *appliance.write(erd, data, callback)*
+This function will write an Entity Reference Designator (ERD) owned by the *appliance*.
+The *erd* argument is the ERD identifier.
+The *data* argument is the ERD data represented as an array of bytes.
+The optional *callback* argument is a function to be called when a response is received.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+
+        // write an ERD owned by the appliance
+        appliance.write(0x5100, [0x12, 0x01, 0x5e, 0x01, 0x00,
+           0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    });
+});
+```
+
+### *appliance.subscribe(erd, callback)*
+This function will subscribe to changes for an Entity Reference Designator (ERD) owned by the *appliance*.
+The *erd* argument is the ERD identifier.
+The optional *callback* argument is a function to be called when a publish is received.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+
+        // subscribe to changes for an ERD owned by the appliance
+        appliance.subscribe(0x5100, function (data) {
+            console.log("value changed:", data);
+        });
+    });
+});
+```
+
+### *appliance.publish(erd, data)*
+This function will publish an Entity Reference Designator (ERD) owned by the *appliance*.
+The *erd* argument is the ERD identifier.
+The *data* argument is the ERD data represented as an array of bytes.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0x80,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+
+        // publish an ERD owned by the appliance
+        appliance.publish(0x5100, [0x12, 0x01, 0x5e, 0x01, 0x00,
+           0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
     });
 });
 ```
