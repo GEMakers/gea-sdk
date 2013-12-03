@@ -390,12 +390,9 @@ exports.plugin = function (bus, configuration, callback) {
         callback(bus.endpoint(configuration.address));
     };
     
-    function discover() {
+    setInterval(function () {
         bus.send({ command: COMMAND_VERSION });
-    }
-    
-    setInterval(discover, DISCOVERY_INTERVAL);
-    discover();
+    }, DISCOVERY_INTERVAL);
     
     callback(bus);
 };
