@@ -13,12 +13,6 @@ exports.configure = function (configuration) {
     configuration.bind = function (adapter, callback) {
         adapter.bind(configuration, callback);
     };
-};
-
-exports.configure = function (configuration) {
-    configuration.bind = function (adapter, callback) {
-        adapter.bind(configuration, callback);
-    };
     
     configuration.plugin = function (plugin) {
         var bind = configuration.bind;
