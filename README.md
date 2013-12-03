@@ -421,9 +421,34 @@ app.bind(adapter, function (bus) {
 });
 ```
 
+### *bus.endpoint(source, destination)*
+This function will create an endpoint object that is discoverable to other endpoints on the *bus*.
+All messages sent via the endpoint will be from the *source* address and delivered to the *destination* address.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    var endpoint = bus.endpoint(0xcb, 0x80);
+    
+    // send a command to the endpoint
+    endpoint.send(0x01, [], function (data) {
+        console.log("response:", data);
+    });
+});
+```
+
 ### *bus.on("appliance", callback)*
 This event is emitted whenever an appliance has been discovered on the bus.
-For each appliance that is discovered, the callback is called with the appliance object as an argument.
+For each appliance that is discovered, the *callback* is called with the appliance object as an argument.
 
 ``` javascript
 var gea = require("gea-sdk");
@@ -438,6 +463,30 @@ var app = gea.configure({
 // bind to the adapter to access the bus
 app.bind(adapter, function (bus) {
     bus.on("appliance", function (appliance) {
+        console.log("address:", appliance.address);
+        console.log("version:", appliance.version.join("."));
+    });
+});
+```
+
+### *bus.create("appliance", callback)*
+This function will create an appliance object that is discoverable to other endpoints on the *bus*.
+Once the appliance is created, the *callback* is called with the appliance object as an argument.
+The appliance address and version are pulled from the application configuration.
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0xcb,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.create("appliance", function (appliance) {
         console.log("address:", appliance.address);
         console.log("version:", appliance.version.join("."));
     });
@@ -605,6 +654,184 @@ app.bind(adapter, function (bus) {
         // publish an ERD owned by the appliance
         appliance.publish(0x5100, [0x12, 0x01, 0x5e, 0x01, 0x00,
            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    });
+});
+```
+
+### *appliance.on("read", callback)*
+This event is emitted when an endpoint requests to read an Entity Reference Designator (ERD) owned by the *appliance*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- destination (the address that subscribed to the ERD)
+- source (the address that published the ERD)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0x80,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.create("appliance", function (appliance) {
+    
+        // listen for reads for an ERD
+        appliance.on("read", function (erd, callback) {
+            console.log("read request:", erd);
+            // callback(); // uncomment this to return an error
+            // callback([0, 0, 0, 0]); // uncomment this to return with data
+        });
+    });
+});
+```
+
+### *appliance.on("write", callback)*
+This event is emitted when an endpoint requests to write an Entity Reference Designator (ERD) owned by the *appliance*.
+The *erd* object has the following fields:
+- erd (the ERD identifier)
+- data (the ERD data represented as an array of bytes)
+- destination (the address that subscribed to the ERD)
+- source (the address that published the ERD)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0x80,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.create("appliance", function (appliance) {
+    
+        // listen for writes to an ERD
+        appliance.on("write", function (erd, callback) {
+            console.log("write request:", erd);
+            // callback(new Error("An error occurred")); uncomment this to return an error
+            // callback(); // uncomment this to return with success
+        });
+    });
+});
+```
+
+### *appliance.command(type)*
+This function will return an object to control functionality of a single command owned by the *appliance*.
+The *type* argument contains meta-data for identifying and serializing the command.
+- command (the command identifier)
+- endian ("big" for big endian or "little" for little endian, *optional*)
+- format (the serialization format: arrays create objects, strings create values)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0x00,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.create("appliance", function (appliance) {
+    
+        // create a version command object
+        var versionCommand = appliance.command({
+            command: 0x01,
+            format: "Bytes"
+        });
+        
+        // listen for reads on the version command
+        versionCommand.on("read", function (callback) {
+            callback([ 0, 0, 1, 0 ]);
+        });
+    
+        // create a door state command object
+        var doorStateCommand = appliance.command({
+            command: 0x23,
+            format: [
+                "doorState:UInt8",
+                "dcSwitchState:UInt8",
+                "acInputState:UInt8"
+            ]
+        });
+        
+        // listen for reads on the door state command
+        doorStateCommand.on("read", function (callback) {
+            callback({
+                doorState: 0x00,
+                dcSwitchState: 0x01,
+                acInputState: 0x02
+            });
+        });
+    });
+});
+```
+
+### *appliance.erd(type)*
+This function will return an object to control functionality of a single Entity Reference Designator (ERD) owned by the *appliance*.
+The *type* argument contains meta-data for identifying and serializing the ERD.
+- erd (the ERD identifier)
+- endian ("big" for big endian or "little" for little endian, *optional*)
+- format (the serialization format: arrays create objects, strings create values)
+
+``` javascript
+var gea = require("gea-sdk");
+var adapter = require("gea-adapter-usb");
+
+// configure the application
+var app = gea.configure({
+    address: 0x00,
+    version: [ 0, 0, 1, 0 ]
+});
+
+// bind to the adapter to access the bus
+app.bind(adapter, function (bus) {
+    bus.create("appliance", function (appliance) {
+    
+        // create a filter alert ERD object
+        var filterAlert = appliance.erd({
+            erd: 0x1000,
+            format: "UInt8"
+        });
+        
+        // listen for reads on the filter alert ERD
+        versionCommand.on("read", function (callback) {
+            callback(1);
+        });
+    
+        // create a filter expiration status ERD object
+        var filterExpirationStatus = appliance.erd({
+            erd: 0x1001,
+            endian: "big",
+            format: [
+                "waterFilterCalendarTimer:UInt16",
+                "waterFilterCalendarPercentUsed:UInt8",
+                "waterFilterHoursRemaining:UInt16",
+                "waterUsageTimer:UInt32",
+                "waterFilterUsageTimePercentUsed:UInt8",
+                "waterFilterOuncesRemaining:UInt32"
+            ]
+        });
+        
+        // listen for reads on the filter expiration status ERD
+        filterExpirationStatus.on("read", function (callback) {
+            callback({
+                waterFilterCalendarTimer: 0x00,
+                waterFilterCalendarPercentUsed: 0x01,
+                waterFilterHoursRemaining: 0x02,
+                waterUsageTimer: 0x03,
+                waterFilterUsageTimePercentUsed: 0x04,
+                waterFilterOuncesRemaining: 0x05
+            });
+        });
     });
 });
 ```
