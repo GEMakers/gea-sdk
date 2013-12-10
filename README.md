@@ -4,6 +4,39 @@ This node.js package provides a framework for communicating with General Electri
 There are three distinct APIs available for communicating to an appliance.
 Each API offers a unique level of abstraction to suit as many different technical levels as possible.
 
+## Table of Contents
+
+- [Installation](#installation)
+- [API](#api)
+  - [gea.configure(configuration)](#geaconfigureconfiguration)
+    - [application.plugin(plugin)](#applicationpluginplugin)
+    - [application.bind(adapter, callback)](#applicationbindadapter-callback)
+      - [bus.send(message)](#bussendmessage)
+      - [bus.on("message", callback)](#busonmessage-callback)
+      - [bus.read(erd)](#busreaderd)
+      - [bus.on("read-response", callback)](#busonread-response-callback)
+      - [bus.write(erd)](#buswriteerd)
+      - [bus.on("write-response", callback)](#busonwrite-response-callback)
+      - [bus.subscribe(erd)](#bussubscribeerd)
+      - [bus.on("publish", callback)](#busonpublish-callback)
+      - [bus.publish(erd)](#buspublisherd)
+      - [bus.on("subscribe", callback)](#busonsubscribe-callback)
+      - [bus.on("read", callback)](#busonread-callback)
+      - [bus.on("write", callback)](#busonwrite-callback)
+      - [bus.endpoint(source, destination)](#busendpointsource-destination)
+      - [bus.on("appliance", callback)](#busonappliance-callback)
+      - [bus.create("appliance", callback)](#buscreateappliance-callback)
+        - [appliance.send(command, data, callback)](#appliancesendcommand-data-callback)
+        - [appliance.on("message", callback)](#applianceonmessage-callback)
+        - [appliance.read(erd, callback)](#appliancereaderd-callback)
+        - [appliance.write(erd, data, callback)](#appliancewriteerd-data-callback)
+        - [appliance.subscribe(erd, callback)](#appliancesubscribeerd-callback)
+        - [appliance.publish(erd, data)](#appliancepublisherd-data)
+        - [appliance.on("read", callback)](#applianceonread-callback)
+        - [appliance.on("write", callback)](#applianceonwrite-callback)
+        - [appliance.command(type)](#appliancecommandtype)
+        - [appliance.erd(type)](#applianceerdtype)
+
 ## Installation
 To install this package using the node.js package manager, issue the following commands:
 
