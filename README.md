@@ -56,7 +56,6 @@ The *configuration* object has the following fields:
 
 ``` javascript
 var gea = require("gea-sdk");
-var adapter = require("gea-adapter-usb");
 
 // configure the application
 var app = gea.configure({
@@ -70,7 +69,6 @@ This function will load the *plugin* as an extension to the application.
 
 ``` javascript
 var gea = require("gea-sdk");
-var adapter = require("gea-adapter-usb");
 
 // configure the application
 var app = gea.configure({
@@ -85,6 +83,9 @@ app.plugin(require("gea-plugin-refrigerator"));
 ### *application.bind(adapter, callback)*
 This function will use the *adapter* to bind to an address on the bus.
 The *callback* will be called for each instance of the bus that was found.
+Note that the adapters are separate node.js packages, and are not included in the SDK.
+This allows the community to create unique adapters for different communication protocols.
+The supported adapters are [USB](https://github.com/GEMakers/gea-adapter-usb) and [UDP](https://github.com/GEMakers/gea-adapter-udp).
 
 ``` javascript
 var gea = require("gea-sdk");
