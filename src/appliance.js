@@ -243,15 +243,19 @@ function Endpoint (bus, source, destination) {
     this.command = function (type) {
         var item = this.item(type);
         
+        if (type.readCommand == undefined) type.readCommand = type.command;
+        if (type.writeCommand == undefined) type.writeCommand = type.command;
+        if (type.readData == undefined) type.readData = [];
+        
         item.read = function (callback) {
-            self.send(type.command, [], function (data) {
+            self.send(type.readCommand, type.readData, function (data) {
                 item.deserialize(data, callback);
             });
         };
         
         item.write = function (value, callback) {
             item.serialize(value, function (data) {
-                self.send(type.command, data, callback);
+                self.send(type.writeCommand, data, callback);
             });
         };
         
@@ -259,7 +263,7 @@ function Endpoint (bus, source, destination) {
             var state = [];
             
             function update () {
-                self.send(type.command, [], function (data) {
+                self.send(type.readCommand, type.readData, function (data) {
                     if (!arrayEquals(state, data)) {
                         state = data;
                         item.deserialize(data, callback);
@@ -271,31 +275,31 @@ function Endpoint (bus, source, destination) {
         };
         
         self.on("message", function (message) {
-            if (message.command == type.command) {
-                if (message.data.length == 0) {
-                    item.emit("read", function (value) {
-                        if (value == undefined) {
-                            /* there is error handling for commands */
-                        }
-                        else {
-                            item.serialize(value, function (data) {
-                                bus.send({
-                                    command: type.command,
-                                    data: data,
-                                    source: destination,
-                                    destination: message.source
-                                });
+            if (message.command == type.readCommand &&
+                arrayEquals(message.data, type.readData)) {
+                
+                item.emit("read", function (value) {
+                    if (value == undefined) {
+                        /* there is no error handling for commands */
+                    }
+                    else {
+                        item.serialize(value, function (data) {
+                            bus.send({
+                                command: type.readCommand,
+                                data: data,
+                                source: destination,
+                                destination: message.source
                             });
-                        }
-                    });
-                }
-                else {
-                    item.deserialize(message.data, function (value) {
-                        item.emit("write", value, function (error) {
-                            /* there is error handling for commands */
                         });
+                    }
+                });
+            }
+            else if (message.command == type.writeCommand) {
+                item.deserialize(message.data, function (value) {
+                    item.emit("write", value, function (error) {
+                        /* there is error handling for commands */
                     });
-                }
+                });
             }
         });
         
