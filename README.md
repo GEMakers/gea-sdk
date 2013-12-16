@@ -36,6 +36,24 @@ Each API offers a unique level of abstraction to suit as many different technica
         - [appliance.on("write", callback)](#applianceonwrite-callback)
         - [appliance.command(type)](#appliancecommandtype)
         - [appliance.erd(type)](#applianceerdtype)
+        - [appliance.modelNumber](#appliancemodelnumber)
+        - [appliance.serialNumber](#applianceserialnumber)
+        - [appliance.remoteEnable](#applianceremoteenable)
+        - [appliance.userInterfaceLock](#applianceuserinterfacelock)
+        - [appliance.clockTime](#applianceclocktime)
+        - [appliance.clockFormat](#applianceclockformat)
+        - [appliance.temperatureDisplayUnits](#appliancetemperaturedisplayunits)
+        - [appliance.applianceType](#applianceappliancetype)
+        - [appliance.sabbathMode](#appliancesabbathmode)
+        - [appliance.soundLevel](#appliancesoundlevel)
+- [Appendix](#appendix)
+  - [Remote enable state](#remote-enable-state)
+  - [User interface state](#user-interface-state)
+  - [Clock format](#clock-format)
+  - [Temperature units](#temperature-units)
+  - [Appliance types](#appliance-types)
+  - [Sabbath modes](#sabbath-modes)
+  - [Sound levels](#sound-levels)
 
 ## Installation
 To install this package using the node.js package manager, issue the following commands:
@@ -869,3 +887,266 @@ app.bind(adapter, function (bus) {
     });
 });
 ```
+
+### *appliance.modelNumber*
+The model number is a read-only unique ASCII string for a particular model of an appliance. This is used to differentiate between feature sets within a single appliance type.
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.modelNumber.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.modelNumber.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+    });
+});
+```
+
+### *appliance.serialNumber*
+The serial number is a read-only ASCII string representing the unique number programmed at the factory for this module. The serial number often contains things such as batch number and line number encoded in the string.
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.serialNumber.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.serialNumber.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+    });
+});
+```
+
+### *appliance.remoteEnable*
+The remote enable is an integer value of the [remote enable state](#remote-enable-state) enumeration. *Note that this is not used if the appliance is either always or never able to be remotely controlled. This can be written to disable remote control, but not to enable it. To enable remote control the user must manually press the remote enable button on the user interface.*
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.remoteEnable.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.remoteEnable.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+        
+        appliance.remoteEnable.write(2);
+    });
+});
+```
+
+### *appliance.userInterfaceLock*
+The user interface lock is an integer value of the [user interface state](#user-interface-state) enumeration. *Note that the user interface cannot be unlocked remotely.*
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.userInterfaceLock.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.userInterfaceLock.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+        
+        appliance.userInterfaceLock.write(1);
+    });
+});
+```
+
+### *appliance.clockTime*
+The clock time that is displayed on the unit is an object with the following fields:
+- hours (the number of hours since midnight)
+- minutes (the number of minutes since the top of the hour)
+- seconds (the number of seconds since the top of the minute)
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.clockTime.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.clockTime.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+        
+        appliance.clockTime.write({
+            hours: 12,
+            minutes: 0,
+            seconds: 0
+        });
+    });
+});
+```
+
+### *appliance.clockFormat*
+The clock format is an integer value of the [clock format](#clock-format) enumeration.
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.clockFormat.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.clockFormat.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+        
+        appliance.clockFormat.write(0);
+    });
+});
+```
+
+### *appliance.temperatureDisplayUnits*
+The units used to display temperature are represented by an integer value of the [temperature units](#temperature-units) enumeration.
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.temperatureDisplayUnits.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.temperatureDisplayUnits.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+        
+        appliance.temperatureDisplayUnits.write(0);
+    });
+});
+```
+
+### *appliance.applianceType*
+The appliance type is represented by a read-only integer value of the [appliance types](#appliance-types) enumeration.
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.applianceType.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.applianceType.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+    });
+});
+```
+
+### *appliance.sabbathMode*
+The sabbath mode is represented by an integer value of the [sabbath modes](#sabbath-modes) enumeration.
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.sabbathMode.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.sabbathMode.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+        
+        appliance.sabbathMode.write(1);
+    });
+});
+```
+
+### *appliance.soundLevel*
+The sound level is represented by an integer value of the [sound levels](#sound-levels) enumeration.
+
+``` javascript
+app.bind(adapter, function (bus) {
+    bus.on("appliance", function (appliance) {
+        appliance.soundLevel.read(function (value) {
+            console.log("read:", value);
+        });
+        
+        appliance.soundLevel.subscribe(function (value) {
+            console.log("subscribe:", value);
+        });
+        
+        appliance.soundLevel.write(3);
+    });
+});
+```
+
+## Appendix
+
+### Remote enable state
+The following is a list of the available remote enable states and their enumerated value.
+
+| Value   | Name                    |
+|:-------:|:------------------------|
+| 0       | Default                 |
+| 1       | Remote control enabled  |
+| 2       | Remote control disabled |
+
+### User interface state
+The following is a list of the available user interface states and their enumerated value.
+
+| Value   | Name                    |
+|:-------:|:------------------------|
+| 0       | Default                 |
+| 1       | User interface locked   |
+| 2       | User interface unlocked |
+
+### Clock format
+The following is a list of the available clock formats and their enumerated value.
+
+| Value   | Name                    |
+|:-------:|:------------------------|
+| 0       | 12-hour display         |
+| 1       | 24-hour display         |
+| 2       | No clock display        |
+
+### Temperature units
+The following is a list of the available units of temperature and their enumerated value.
+
+| Value   | Name                    |
+|:-------:|:------------------------|
+| 0       | Degrees in Celsius      |
+| 1       | Degrees in Fahrenheit   |
+
+### Appliance types
+The following is a list of the available appliance types and their enumerated value.
+
+| Value   | Name                    |
+|:-------:|:------------------------|
+| 0       | Water heater            |
+| 1       | Clothes dryer           |
+| 2       | Clothes washer          |
+| 3       | Refrigerator            |
+| 4       | Microwave               |
+| 5       | Advantium               |
+| 6       | Dishwasher              |
+| 7       | Oven                    |
+| 8       | Electric range          |
+| 9       | Gas range               |
+
+### Sabbath modes
+The following is a list of the available sabbath modes and their enumerated value.
+
+| Value   | Name                    |
+|:-------:|:------------------------|
+| 0       | Sabbath mode disabled   |
+| 1       | Sabbath mode enabled    |
+
+### Sound levels
+The following is a list of the available sound levels and their enumerated value.
+
+| Value   | Name                    |
+|:-------:|:------------------------|
+| 0       | No sound                |
+| 1       | Low sound               |
+| 2       | Medium sound            |
+| 3       | High sound              |
+

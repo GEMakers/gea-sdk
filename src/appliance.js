@@ -353,6 +353,60 @@ function Appliance (bus, source, destination, version) {
     var endpoint = new Endpoint(bus, source, destination);
     endpoint.version = version;
     
+    endpoint.modelNumber = endpoint.erd({
+        erd: 0x0001,
+        format: "Ascii"
+    });
+    
+    endpoint.serialNumber = endpoint.erd({
+        erd: 0x002,
+        format: "Ascii"
+    });
+    
+    endpoint.remoteEnable = endpoint.erd({
+        erd: 0x003,
+        format: "UInt8"
+    });
+    
+    endpoint.userInterfaceLock = endpoint.erd({
+        erd: 0x004,
+        format: "UInt8"
+    });
+    
+    endpoint.clockTime = endpoint.erd({
+        erd: 0x005,
+        format: [
+            "hours:UInt8",
+            "minutes:UInt8",
+            "seconds:UInt8",
+        ]
+    });
+    
+    endpoint.clockFormat = endpoint.erd({
+        erd: 0x006,
+        format: "UInt8"
+    });
+    
+    endpoint.temperatureDisplayUnits = endpoint.erd({
+        erd: 0x007,
+        format: "UInt8"
+    });
+    
+    endpoint.applianceType = endpoint.erd({
+        erd: 0x008,
+        format: "UInt8"
+    });
+    
+    endpoint.sabbathMode = endpoint.erd({
+        erd: 0x009,
+        format: "UInt8"
+    });
+    
+    endpoint.soundLevel = endpoint.erd({
+        erd: 0x00a,
+        format: "UInt8"
+    });
+    
     return endpoint;
 }
 
