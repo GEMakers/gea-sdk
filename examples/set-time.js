@@ -1,12 +1,24 @@
 /*
- * Copyright (c) 2013 - General Electric - Confidential - All Rights Reserved
- * 
- * Author: Christopher Baker <christopher.baker2@ge.com>
- *
  * This application will read the current time from an appliance and show it to
  * the user. It will prompt the user to change the time on the appliance. If no
  * time is entered, it will default to the current time on the computer.
  *
+ * Copyright (c) 2014 General Electric
+ *  
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *  
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * 
  */
 
 var gea = require("gea-sdk");
