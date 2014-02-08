@@ -10,7 +10,8 @@
     "main" : "src/main.js",
     "version" : "0.1.0",
     "dependencies": {
-        "binary-stream": "git+https://github.com/GEMakers/binary-stream.git"
+        "binary-stream": "git+https://github.com/GEMakers/binary-stream.git",
+        "gea-adapter-usb": "git+https://github.com/GEMakers/gea-adapter-usb.git"
     }
 }
 
