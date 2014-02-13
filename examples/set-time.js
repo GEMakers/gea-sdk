@@ -1,7 +1,7 @@
 /*
  * This application will read the current time from an appliance and show it to
  * the user. It will prompt the user to change the time on the appliance. If no
- * time is entered, it will default to the current time on the computer.
+ * time is entered, it will default to the current time on the computer. <modify_1>
  *
  * Copyright (c) 2014 General Electric
  *  
