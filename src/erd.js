@@ -22,6 +22,8 @@ var stream = require("binary-stream");
 const COMMAND_ERD_READ = 0xf0;
 const COMMAND_ERD_WRITE = 0xf1;
 const COMMAND_ERD_SUBSCRIBE = 0xf2;
+const COMMAND_ERD_SUBSCRIBE_LIST = 0xf3;
+const COMMAND_ERD_UNSUBSCRIBE = 0xf4;
 const COMMAND_ERD_PUBLISH = 0xf5;
 const COMMAND_ERD_PUBLISH_ACKNOWLEDGMENT = 0xf5;
 
@@ -154,6 +156,62 @@ exports.plugin = function (bus, configuration, callback) {
                     var time = reader.readUInt8();
 
                     bus.emit("subscribe", {
+                        erd: erd,
+                        source: message.source,
+                        destination: message.destination
+                    });
+                }
+            }
+
+            delete reader;
+        }
+        else if (message.command == COMMAND_ERD_SUBSCRIBE_LIST) {
+            var reader = new stream.Reader(message.data, stream.BIG_ENDIAN);
+
+            function sendResponse (data) {
+               if (data == undefined) {
+                  bus.send({
+                     command: COMMAND_ERD_SUBSCRIBE_LIST,
+                     data: [ 0 ],
+                     source: configuration.address,
+                     destination: message.source
+                  });
+               }
+               else {
+                  bus.send({
+                     command: COMMAND_ERD_SUBSCRIBE_LIST,
+                     data: data,
+                     source: configuration.address,
+                     destination: message.source
+                  });
+               }
+            }
+
+            if (message.data.length == 1) {
+                /* ignore subscribe list response */
+            }
+            else {
+               bus.emit("subscribeList", {
+                  source: message.source,
+                  destination: message.destination
+               }, sendResponse);
+            }
+
+            delete reader;
+        }
+        else if (message.command == COMMAND_ERD_UNSUBSCRIBE) {
+            var reader = new stream.Reader(message.data, stream.BIG_ENDIAN);
+            var count = reader.readUInt8();
+
+            if (message.data.length == 1) {
+                /* ignore unsubscribe response */
+            }
+            else {
+                for (var i = 0; i < count; i++) {
+                    var erd = reader.readUInt16();
+                    var time = reader.readUInt8();
+
+                    bus.emit("unsubscribe", {
                         erd: erd,
                         source: message.source,
                         destination: message.destination

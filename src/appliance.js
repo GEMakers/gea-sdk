@@ -460,9 +460,11 @@ exports.plugin = function (bus, configuration, callback) {
         callback(bus.endpoint(configuration.address));
     };
     
-    setInterval(function () {
-        bus.send({ command: COMMAND_VERSION });
-    }, DISCOVERY_INTERVAL);
+    bus.startDiscovery = function (name, callback) {
+       setInterval(function () {
+          bus.send({ command: COMMAND_VERSION });
+       }, DISCOVERY_INTERVAL);
+    };
     
     callback(bus);
 };
