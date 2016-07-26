@@ -424,6 +424,7 @@ function Appliance (bus, source, destination, version) {
 
 exports.plugin = function (bus, configuration, callback) {
     var appliances = [];
+    var discoveryTimer = null;
     
     bus.on("message", function (message) {
         if (message.command == COMMAND_VERSION) {
@@ -460,11 +461,22 @@ exports.plugin = function (bus, configuration, callback) {
         callback(bus.endpoint(configuration.address));
     };
     
-    bus.startDiscovery = function (name, callback) {
-       setInterval(function () {
-          bus.send({ command: COMMAND_VERSION });
-       }, DISCOVERY_INTERVAL);
+    bus.startDiscovery = function () {
+       if (discoveryTimer == null) {
+          discoveryTimer = setInterval(function () {
+             bus.send({ command: COMMAND_VERSION });
+          }, DISCOVERY_INTERVAL);
+       }
     };
+    bus.stopDiscovery = function () {
+       if (discoveryTimer != null) {
+         clearInterval(discoveryTimer);
+         discoveryTimer = null;
+       }
+    };
+    discoveryTimer = setInterval(function () {
+       bus.send({ command: COMMAND_VERSION });
+    }, DISCOVERY_INTERVAL);
     
     callback(bus);
 };
