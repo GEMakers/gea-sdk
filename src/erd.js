@@ -209,7 +209,6 @@ exports.plugin = function (bus, configuration, callback) {
             else {
                 for (var i = 0; i < count; i++) {
                     var erd = reader.readUInt16();
-                    var time = reader.readUInt8();
 
                     bus.emit("unsubscribe", {
                         erd: erd,
