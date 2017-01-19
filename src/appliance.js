@@ -459,7 +459,7 @@ exports.plugin = function (bus, configuration, callback) {
     });
     
     bus.endpoint = function (source, destination) {
-        var e Endpoint(bus, source, destination);
+        var e = Endpoint(bus, source, destination);
         e.setMaxListeners(0);
         return e;
     };
