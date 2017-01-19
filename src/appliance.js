@@ -249,7 +249,9 @@ function Endpoint (bus, source, destination) {
     };
     
     this.item = function (type) {
-        return new Item(type);
+        var i = Item(type);
+        i.setMaxListeners(0);
+        return i;
     };
     
     this.command = function (type) {
@@ -363,6 +365,9 @@ util.inherits(Endpoint, events.EventEmitter);
 
 function Appliance (bus, source, destination, version) {
     var endpoint = new Endpoint(bus, source, destination);
+
+    endpoint.setMaxListeners(0);
+
     endpoint.version = version;
     
     endpoint.modelNumber = endpoint.erd({
@@ -454,7 +459,9 @@ exports.plugin = function (bus, configuration, callback) {
     });
     
     bus.endpoint = function (source, destination) {
-        return new Endpoint(bus, source, destination);
+        var e Endpoint(bus, source, destination);
+        e.setMaxListeners(0);
+        return e;
     };
     
     bus.create = function (name, callback) {
