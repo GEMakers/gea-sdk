@@ -249,7 +249,7 @@ function Endpoint (bus, source, destination) {
     };
     
     this.item = function (type) {
-        var i = Item(type);
+        var i = new Item(type);
         i.setMaxListeners(0);
         return i;
     };
@@ -459,7 +459,7 @@ exports.plugin = function (bus, configuration, callback) {
     });
     
     bus.endpoint = function (source, destination) {
-        var e = Endpoint(bus, source, destination);
+        var e = new Endpoint(bus, source, destination);
         e.setMaxListeners(0);
         return e;
     };
