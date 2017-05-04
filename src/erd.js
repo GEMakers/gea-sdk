@@ -153,7 +153,8 @@ exports.plugin = function (bus, configuration, callback) {
             else {
                 for (var i = 0; i < count; i++) {
                     var erd = reader.readUInt16();
-                    var time = reader.readUInt8();
+                    // time-based subscriptions not supported - rmb
+                    // var time = reader.readUInt8();
 
                     bus.emit("subscribe", {
                         erd: erd,
